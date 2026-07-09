@@ -32,6 +32,8 @@
 
 После этого каждый `git push` в `main` автоматически обновляет бота на Fly.
 
+**Как работает CI:** GitHub Actions собирает Docker-образ на своём runner, пушит в `registry.fly.io`, затем `flyctl deploy --image ...`. Remote builder Fly.io не используется — это надёжнее с deploy-токеном.
+
 ### Обновление текстов клиники (CLINIC_*)
 
 Тексты — секреты Fly, не в GitHub:
@@ -190,7 +192,7 @@ fly deploy
 | Ошибка Google Sheets | Проверьте `GOOGLE_CREDENTIALS_JSON` и доступ к таблице |
 | Имя app занято | Другое имя в `fly.toml` + `fly apps create` |
 | Бот не стартует | `fly logs` — смотрите traceback |
-| GitHub Actions: `unauthorized` | Пересоздайте `FLY_API_TOKEN` (см. скрипт выше). Если deploy-токен не помогает: `flyctl auth token` → обновите секрет в GitHub |
+| GitHub Actions: `unauthorized` / `remote builder heartbeat` | Deploy-токен не может поднять remote builder Fly. Workflow собирает Docker на GitHub runner — пересоздайте `FLY_API_TOKEN` (см. скрипт выше). Если не помогает: `flyctl auth token` → обновите секрет |
 
 ---
 
