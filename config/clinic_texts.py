@@ -16,26 +16,26 @@ class ClinicTexts:
 
 def load_clinic_texts() -> ClinicTexts:
     if not _CLINIC_FILE.is_file():
-        return ClinicTexts(
-            name="Стоматологическая клиника",
-            about=(
-                "Мы оказываем полный спектр стоматологических услуг: "
-                "консультации, лечение, профессиональную гигиену и хирургию."
-            ),
-            address="уточняйте у администратора",
-            phone="уточняйте у администратора",
-            hours="Пн–Сб, по предварительной записи",
+        raise FileNotFoundError(
+            f"Clinic config not found: {_CLINIC_FILE}. "
+            "Ensure config/clinic.toml is included in the Docker image."
         )
 
     with _CLINIC_FILE.open("rb") as clinic_file:
         data = tomllib.load(clinic_file)
 
+    def _require(key: str) -> str:
+        value = str(data.get(key, "")).strip()
+        if not value:
+            raise ValueError(f"Missing or empty '{key}' in {_CLINIC_FILE}")
+        return value
+
     return ClinicTexts(
-        name=str(data.get("clinic_name", "")).strip() or "Стоматологическая клиника",
-        about=str(data.get("clinic_about", "")).strip(),
-        address=str(data.get("clinic_address", "")).strip() or "уточняйте у администратора",
-        phone=str(data.get("clinic_phone", "")).strip() or "уточняйте у администратора",
-        hours=str(data.get("clinic_hours", "")).strip() or "Пн–Сб, по предварительной записи",
+        name=_require("clinic_name"),
+        about=_require("clinic_about"),
+        address=_require("clinic_address"),
+        phone=_require("clinic_phone"),
+        hours=_require("clinic_hours"),
     )
 
 

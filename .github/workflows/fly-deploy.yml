@@ -18,6 +18,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify clinic config
+        run: test -f config/clinic.toml && test -f config/clinic_texts.py
+
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -39,6 +42,8 @@ jobs:
           file: Dockerfile
           push: true
           tags: registry.fly.io/dental-booking-bot:${{ github.sha }}
+          build-args: |
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
