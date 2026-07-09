@@ -49,14 +49,15 @@ python -m bot.main
 | `GOOGLE_SHEETS_ID` | да | ID Google-таблицы |
 | `GOOGLE_CREDENTIALS_PATH` | локально | Путь к JSON-ключу |
 | `GOOGLE_CREDENTIALS_JSON` | на сервере | JSON-ключ одной строкой (альтернатива файлу) |
-| `CLINIC_NAME` | нет | Название в главном меню |
-| `CLINIC_ABOUT` | нет | Текст «О клинике» |
-| `CLINIC_ADDRESS` | нет | Адрес в «Контактах» |
-| `CLINIC_PHONE` | нет | Телефон в «Контактах» |
-| `CLINIC_HOURS` | нет | Режим работы |
 | `FSM_TIMEOUT_MINUTES` | нет | Таймаут сессии записи (по умолчанию 30) |
 | `REDIS_URL` | нет | Redis для FSM в production |
 | `LOG_LEVEL` | нет | INFO, DEBUG, WARNING |
+
+---
+
+## Тексты клиники
+
+Редактируйте `config/clinic.toml` (UTF-8): название, «О клинике», контакты. После изменений — `git push` в `main`, GitHub Actions задеплоит обновление.
 
 ---
 

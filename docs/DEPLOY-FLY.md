@@ -34,11 +34,16 @@
 
 **Как работает CI:** GitHub Actions собирает Docker-образ на своём runner, пушит в `registry.fly.io`, затем `flyctl deploy --image ...`. Remote builder Fly.io не используется — это надёжнее с deploy-токеном.
 
-### Обновление текстов клиники (CLINIC_*)
+### Обновление текстов клиники
 
-Тексты — секреты Fly, не в GitHub:
+Тексты хранятся в **`config/clinic.toml`** в репозитории (UTF-8), не в Fly secrets.
+
+1. Отредактируйте `config/clinic.toml`
+2. `git push` в `main` — деплой через GitHub Actions подхватит изменения
+
+Старые секреты `CLINIC_*` на Fly больше не используются (ломали кириллицу). При желании удалите их:
 ```powershell
-.\scripts\fly-secrets-clinic.ps1
+C:\Users\Sasha\.fly\bin\flyctl.exe secrets unset CLINIC_NAME CLINIC_ABOUT CLINIC_ADDRESS CLINIC_PHONE CLINIC_HOURS --app dental-booking-bot
 ```
 
 ---

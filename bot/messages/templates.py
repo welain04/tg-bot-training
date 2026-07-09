@@ -1,4 +1,4 @@
-from config.settings import settings
+from config.clinic_texts import clinic_texts
 
 SELECT_SERVICE_TEXT = (
     "📅 <b>Запись на приём</b>\n\n"
@@ -65,7 +65,7 @@ USE_BUTTONS_TEXT = "Пожалуйста, используйте кнопки м
 
 def get_main_menu_text() -> str:
     return (
-        f"🦷 <b>{settings.clinic_name}</b>\n\n"
+        f"🦷 <b>{clinic_texts.name}</b>\n\n"
         "Добро пожаловать! Выберите действие:"
     )
 
@@ -73,7 +73,7 @@ def get_main_menu_text() -> str:
 def get_about_text() -> str:
     return (
         "ℹ️ <b>О клинике</b>\n\n"
-        f"{settings.clinic_about}\n\n"
+        f"{clinic_texts.about}\n\n"
         "Запись на приём — через кнопку «Записаться» в главном меню."
     )
 
@@ -81,9 +81,9 @@ def get_about_text() -> str:
 def get_contacts_text() -> str:
     return (
         "📞 <b>Контакты</b>\n\n"
-        f"📍 Адрес: {settings.clinic_address}\n"
-        f"☎️ Телефон: {settings.clinic_phone}\n"
-        f"🕐 Режим работы: {settings.clinic_hours}"
+        f"📍 Адрес: {clinic_texts.address}\n"
+        f"☎️ Телефон: {clinic_texts.phone}\n"
+        f"🕐 Режим работы: {clinic_texts.hours}"
     )
 
 
