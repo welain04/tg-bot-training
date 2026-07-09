@@ -10,17 +10,21 @@
 
 ### Однократная настройка GitHub Actions
 
-1. Создайте deploy-токен Fly:
+1. Создайте deploy-токен Fly (скрипт копирует токен в буфер):
+   ```powershell
+   .\scripts\create-fly-github-token.ps1
+   ```
+   Или вручную:
    ```powershell
    C:\Users\Sasha\.fly\bin\flyctl.exe tokens create deploy --app dental-booking-bot --name github-actions
    ```
-   Скопируйте выведенный токен (один раз).
+   **Важно:** скопируйте токен **целиком**, включая префикс `FlyV1` и пробел после него.
 
 2. Добавьте секрет в GitHub:
    - https://github.com/welain04/tg-bot-training/settings/secrets/actions
-   - **New repository secret**
-   - Name: `FLY_API_TOKEN`
-   - Value: вставьте токен
+   - **New repository secret** (или **Update** если секрет уже есть)
+   - Name: `FLY_API_TOKEN` (имя строго такое)
+   - Value: вставьте токен без лишних пробелов/переносов строк
 
 3. Запустите деплой:
    - https://github.com/welain04/tg-bot-training/actions
@@ -186,6 +190,7 @@ fly deploy
 | Ошибка Google Sheets | Проверьте `GOOGLE_CREDENTIALS_JSON` и доступ к таблице |
 | Имя app занято | Другое имя в `fly.toml` + `fly apps create` |
 | Бот не стартует | `fly logs` — смотрите traceback |
+| GitHub Actions: `unauthorized` | Пересоздайте `FLY_API_TOKEN` (см. скрипт выше). Если deploy-токен не помогает: `flyctl auth token` → обновите секрет в GitHub |
 
 ---
 
