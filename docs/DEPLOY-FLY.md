@@ -1,6 +1,54 @@
 # Деплой на Fly.io
 
-Пошаговая инструкция для Windows.
+## Источник кода: GitHub (рекомендуется)
+
+Бот деплоится **из GitHub**, не с локального ПК.
+
+1. Push в ветку `main` → GitHub Actions собирает и деплоит на Fly.io
+2. Секреты бота (`BOT_TOKEN`, Google и т.д.) хранятся **на Fly.io** (`fly secrets`)
+3. Локальный `fly deploy` **не используйте**
+
+### Однократная настройка GitHub Actions
+
+1. Создайте deploy-токен Fly:
+   ```powershell
+   C:\Users\Sasha\.fly\bin\flyctl.exe tokens create deploy --app dental-booking-bot --name github-actions
+   ```
+   Скопируйте выведенный токен (один раз).
+
+2. Добавьте секрет в GitHub:
+   - https://github.com/welain04/tg-bot-training/settings/secrets/actions
+   - **New repository secret**
+   - Name: `FLY_API_TOKEN`
+   - Value: вставьте токен
+
+3. Запустите деплой:
+   - https://github.com/welain04/tg-bot-training/actions
+   - Workflow **Deploy to Fly.io** → **Run workflow**
+
+После этого каждый `git push` в `main` автоматически обновляет бота на Fly.
+
+### Обновление текстов клиники (CLINIC_*)
+
+Тексты — секреты Fly, не в GitHub:
+```powershell
+.\scripts\fly-secrets-clinic.ps1
+```
+
+---
+
+## Локальный деплой (устарело)
+
+<details>
+<summary>Только для отладки</summary>
+
+Пошаговая инструкция для Windows ниже. Для production используйте GitHub Actions.
+
+</details>
+
+---
+
+## Локальная инструкция (Windows)
 
 ## 1. Установить Fly CLI
 
