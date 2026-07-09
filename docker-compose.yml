@@ -1,0 +1,15 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    restart: unless-stopped
+    depends_on:
+      - redis
+    volumes:
+      - ./credentials:/app/credentials:ro
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped

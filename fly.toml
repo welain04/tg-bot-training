@@ -1,0 +1,16 @@
+# Уникальное имя приложения на Fly.io (если занято — измените и выполните: fly apps create НОВОЕ_ИМЯ)
+app = "dental-booking-bot"
+primary_region = "ams"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  TIMEZONE = "Europe/Moscow"
+  LOG_LEVEL = "INFO"
+  FSM_TIMEOUT_MINUTES = "30"
+
+# Бот работает через polling (без HTTP). Fly держит процесс запущенным.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
