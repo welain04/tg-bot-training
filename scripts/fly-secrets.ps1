@@ -20,7 +20,7 @@ if (-not (Test-Path $credsFile)) {
 }
 
 $vars = @{}
-Get-Content $envFile | ForEach-Object {
+Get-Content $envFile -Encoding UTF8 | ForEach-Object {
     $line = $_.Trim()
     if ($line -and -not $line.StartsWith("#") -and $line -match "^([^=]+)=(.*)$") {
         $vars[$Matches[1].Trim()] = $Matches[2].Trim()
@@ -37,7 +37,8 @@ foreach ($name in $required) {
 function Set-FlySecret {
     param([string]$Name, [string]$Value)
     Write-Host "Setting $Name..."
-    & $flyctl secrets set "${Name}=${Value}"
+    # stdin avoids Windows console encoding issues with Cyrillic
+    $Value | & $flyctl secrets set "${Name}=-"
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to set $Name"
     }
@@ -48,8 +49,7 @@ Set-FlySecret "ADMIN_CHAT_ID" $vars["ADMIN_CHAT_ID"]
 Set-FlySecret "GOOGLE_SHEETS_ID" $vars["GOOGLE_SHEETS_ID"]
 
 Write-Host "Setting GOOGLE_CREDENTIALS_JSON..."
-$credsJson = Get-Content -Raw $credsFile
-$credsJson | & $flyctl secrets set "GOOGLE_CREDENTIALS_JSON=-"
+Get-Content -Raw -Encoding UTF8 $credsFile | & $flyctl secrets set "GOOGLE_CREDENTIALS_JSON=-"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to set GOOGLE_CREDENTIALS_JSON"
 }
@@ -65,4 +65,4 @@ foreach ($name in $optional) {
     }
 }
 
-Write-Host "Done. Run: flyctl deploy"
+Write-Host "Done. Fly will restart the app automatically."
