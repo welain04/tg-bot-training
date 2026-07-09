@@ -13,6 +13,8 @@ def build_credentials(
     credentials_json: str | None = None,
 ) -> Credentials:
     if credentials_json:
+        # Fly secrets / PowerShell may inject a UTF-8 BOM prefix.
+        credentials_json = credentials_json.lstrip("\ufeff").strip()
         info: dict[str, Any] = json.loads(credentials_json)
         return Credentials.from_service_account_info(info, scopes=SCOPES)
 

@@ -49,7 +49,8 @@ Set-FlySecret "ADMIN_CHAT_ID" $vars["ADMIN_CHAT_ID"]
 Set-FlySecret "GOOGLE_SHEETS_ID" $vars["GOOGLE_SHEETS_ID"]
 
 Write-Host "Setting GOOGLE_CREDENTIALS_JSON..."
-Get-Content -Raw -Encoding UTF8 $credsFile | & $flyctl secrets set "GOOGLE_CREDENTIALS_JSON=-"
+$credentialsJson = [System.IO.File]::ReadAllText($credsFile).TrimStart([char]0xFEFF)
+$credentialsJson | & $flyctl secrets set "GOOGLE_CREDENTIALS_JSON=-"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to set GOOGLE_CREDENTIALS_JSON"
 }

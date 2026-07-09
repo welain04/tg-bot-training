@@ -94,8 +94,13 @@ async def _get_available_times(data: dict, appointment_date: date) -> list[str]:
 @router.callback_query(F.data == "book")
 async def start_booking(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    clinic_data = get_clinic_data_service()
-    services = await run_sync(clinic_data.get_services)
+    try:
+        clinic_data = get_clinic_data_service()
+        services = await run_sync(clinic_data.get_services)
+    except Exception:
+        logger.exception("Failed to load services for booking")
+        await callback.answer("Не удалось загрузить услуги. Попробуйте позже.", show_alert=True)
+        return
 
     if not services:
         await callback.answer()
