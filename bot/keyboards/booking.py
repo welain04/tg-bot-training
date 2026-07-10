@@ -17,13 +17,42 @@ def _navigation_row(back_callback: str | None) -> list[InlineKeyboardButton]:
     return row
 
 
-def services_keyboard(services: list[Service]) -> InlineKeyboardMarkup:
+def services_keyboard(services: list[Service], *, ai_pick_available: bool = True) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(text=service.name, callback_data=f"svc:{service.id}")]
         for service in services
     ]
+    if ai_pick_available:
+        rows.append(
+            [InlineKeyboardButton(text="🤖 Подобрать услугу", callback_data="pick_service_ai")]
+        )
     rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def ai_pick_service_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="◀️ К списку услуг", callback_data="back:service")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")],
+        ]
+    )
+
+
+def ai_service_confirm_keyboard(service_id: str, service_name: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"✅ Записаться: {service_name}",
+                    callback_data=f"confirm_ai_svc:{service_id}",
+                )
+            ],
+            [InlineKeyboardButton(text="🔄 Уточнить запрос", callback_data="pick_service_ai")],
+            [InlineKeyboardButton(text="◀️ К списку услуг", callback_data="back:service")],
+            [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")],
+        ]
+    )
 
 
 def doctors_keyboard(doctors: list[Doctor]) -> InlineKeyboardMarkup:

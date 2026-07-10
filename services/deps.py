@@ -3,8 +3,10 @@ from functools import lru_cache
 
 from config.settings import settings
 from integrations.google_sheets import GoogleSheetsClient, build_credentials
+from services.ai_prompt_service import AiPromptService
 from services.booking_service import BookingService
 from services.clinic_data_service import ClinicDataService
+from services.llm_service import LlmService
 
 
 @lru_cache
@@ -31,6 +33,22 @@ def get_schedule_service() -> "ScheduleService":
 @lru_cache
 def get_booking_service() -> BookingService:
     return BookingService(get_sheets_client())
+
+
+@lru_cache
+def get_ai_prompt_service() -> AiPromptService:
+    return AiPromptService()
+
+
+@lru_cache
+def get_llm_service() -> LlmService:
+    return LlmService(get_clinic_data_service(), get_ai_prompt_service())
+
+
+def build_ai_system_prompt() -> str:
+    clinic_data = get_clinic_data_service()
+    prompt_service = get_ai_prompt_service()
+    return prompt_service.build_system_prompt(clinic_data.get_services())
 
 
 async def run_sync(func, /, *args, **kwargs):

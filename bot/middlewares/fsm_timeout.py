@@ -15,6 +15,7 @@ SESSION_UPDATED_AT_KEY = "session_updated_at"
 
 BOOKING_STATES = {
     BookingStates.select_service.state,
+    BookingStates.ai_pick_service.state,
     BookingStates.select_doctor.state,
     BookingStates.select_date.state,
     BookingStates.select_time.state,

@@ -3,3 +3,4 @@ pydantic-settings>=2.0,<3
 gspread>=6.0,<7
 google-auth>=2.0,<3
 redis>=5.0,<6
+openai>=1.30,<2  # OpenAI SDK — клиент для Groq API (совместимый формат)

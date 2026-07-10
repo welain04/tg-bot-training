@@ -20,5 +20,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     redis_url: str | None = None
 
+    groq_api_key: str | None = None
+    groq_model: str = "llama-3.3-70b-versatile"
+    groq_temperature: float = 0.3
+    groq_max_tokens: int = 300
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+
 
 settings = Settings()

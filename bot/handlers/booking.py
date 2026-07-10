@@ -8,6 +8,8 @@ from aiogram.types import CallbackQuery, Message
 
 from bot.data.mock import ANY_DOCTOR_ID, ANY_DOCTOR_NAME
 from bot.keyboards.booking import (
+    ai_pick_service_keyboard,
+    ai_service_confirm_keyboard,
     confirm_keyboard,
     dates_keyboard,
     doctors_keyboard,
@@ -21,6 +23,9 @@ from bot.keyboards.booking import (
 )
 from bot.keyboards.main_menu import main_menu_keyboard
 from bot.messages.templates import (
+    AI_ERROR_TEXT,
+    AI_PICK_NOT_CONFIGURED_TEXT,
+    AI_PICK_SERVICE_TEXT,
     BOOKING_IN_PROGRESS_TEXT,
     BOOKING_SAVE_ERROR_TEXT,
     CANCEL_TEXT,
@@ -33,21 +38,60 @@ from bot.messages.templates import (
     SELECT_DOCTOR_TEXT,
     SELECT_SERVICE_TEXT,
     SELECT_TIME_TEXT,
+    format_ai_service_recommendation,
     format_confirm_text,
     format_success_text,
 )
 from bot.states.booking import BookingStates
+from bot.utils.typing_action import with_typing
+from domain.models.service import Service
 from services.deps import (
     get_booking_service,
     get_clinic_data_service,
+    get_llm_service,
     get_schedule_service,
     run_sync,
 )
+from services.llm_service import ChatMessage
 from services.notification_service import NotificationService
 from services.validation_service import ValidationService
 
 router = Router()
 logger = logging.getLogger(__name__)
+
+AI_PICK_HISTORY_KEY = "ai_pick_history"
+
+
+async def _get_services_keyboard():
+    clinic_data = get_clinic_data_service()
+    services = await run_sync(clinic_data.get_services)
+    ai_available = get_llm_service().is_configured
+    return services, services_keyboard(services, ai_pick_available=ai_available)
+
+
+async def _go_to_doctor_selection(
+    callback: CallbackQuery,
+    state: FSMContext,
+    service: Service,
+) -> None:
+    clinic_data = get_clinic_data_service()
+    doctors = await run_sync(clinic_data.get_doctors_for_service, service.id)
+    if not doctors:
+        await callback.answer("Нет доступных врачей для этой услуги", show_alert=True)
+        return
+
+    await state.update_data(
+        service_id=service.id,
+        service_name=service.name,
+        service_duration_min=service.duration_min,
+    )
+    await state.set_state(BookingStates.select_doctor)
+    await callback.answer()
+    await _edit_or_answer(
+        callback,
+        SELECT_DOCTOR_TEXT,
+        doctors_keyboard(doctors),
+    )
 
 
 async def _edit_or_answer(callback: CallbackQuery, text: str, reply_markup) -> None:
@@ -95,8 +139,7 @@ async def _get_available_times(data: dict, appointment_date: date) -> list[str]:
 async def start_booking(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     try:
-        clinic_data = get_clinic_data_service()
-        services = await run_sync(clinic_data.get_services)
+        services, keyboard = await _get_services_keyboard()
     except Exception:
         logger.exception("Failed to load services for booking")
         await callback.answer("Не удалось загрузить услуги. Попробуйте позже.", show_alert=True)
@@ -109,14 +152,16 @@ async def start_booking(callback: CallbackQuery, state: FSMContext) -> None:
 
     await state.set_state(BookingStates.select_service)
     await callback.answer()
+    _, keyboard = await _get_services_keyboard()
     await _edit_or_answer(
         callback,
         SELECT_SERVICE_TEXT,
-        services_keyboard(services),
+        keyboard,
     )
 
 
 @router.callback_query(F.data == "cancel", BookingStates.select_service)
+@router.callback_query(F.data == "cancel", BookingStates.ai_pick_service)
 @router.callback_query(F.data == "cancel", BookingStates.select_doctor)
 @router.callback_query(F.data == "cancel", BookingStates.select_date)
 @router.callback_query(F.data == "cancel", BookingStates.select_time)
@@ -138,23 +183,88 @@ async def select_service(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer("Услуга не найдена", show_alert=True)
         return
 
-    doctors = await run_sync(clinic_data.get_doctors_for_service, service.id)
-    if not doctors:
-        await callback.answer("Нет доступных врачей для этой услуги", show_alert=True)
+    await _go_to_doctor_selection(callback, state, service)
+
+
+@router.callback_query(F.data == "pick_service_ai", BookingStates.select_service)
+@router.callback_query(F.data == "pick_service_ai", BookingStates.ai_pick_service)
+async def start_ai_service_pick(callback: CallbackQuery, state: FSMContext) -> None:
+    llm = get_llm_service()
+    if not llm.is_configured:
+        await callback.answer(
+            "Помощник недоступен. Выберите услугу из списка.",
+            show_alert=True,
+        )
         return
 
-    await state.update_data(
-        service_id=service.id,
-        service_name=service.name,
-        service_duration_min=service.duration_min,
-    )
-    await state.set_state(BookingStates.select_doctor)
+    await state.set_state(BookingStates.ai_pick_service)
+    await state.update_data(**{AI_PICK_HISTORY_KEY: []})
     await callback.answer()
-    await _edit_or_answer(
-        callback,
-        SELECT_DOCTOR_TEXT,
-        doctors_keyboard(doctors),
-    )
+    await _edit_or_answer(callback, AI_PICK_SERVICE_TEXT, ai_pick_service_keyboard())
+
+
+@router.callback_query(F.data.startswith("confirm_ai_svc:"), BookingStates.ai_pick_service)
+async def confirm_ai_service(callback: CallbackQuery, state: FSMContext) -> None:
+    service_id = callback.data.split(":", maxsplit=1)[1]
+    clinic_data = get_clinic_data_service()
+    service = await run_sync(clinic_data.get_service_by_id, service_id)
+    if service is None:
+        await callback.answer("Услуга не найдена", show_alert=True)
+        return
+
+    await _go_to_doctor_selection(callback, state, service)
+
+
+@router.message(BookingStates.ai_pick_service, F.text)
+async def handle_ai_service_pick(message: Message, state: FSMContext) -> None:
+    llm = get_llm_service()
+    if not llm.is_configured:
+        await state.set_state(BookingStates.select_service)
+        _, keyboard = await _get_services_keyboard()
+        await message.answer(AI_PICK_NOT_CONFIGURED_TEXT, reply_markup=keyboard)
+        return
+
+    clinic_data = get_clinic_data_service()
+    try:
+        services = await run_sync(clinic_data.get_services)
+    except Exception:
+        logger.exception("Failed to load services for AI pick")
+        await message.answer(AI_ERROR_TEXT, reply_markup=ai_pick_service_keyboard())
+        return
+
+    if not services:
+        await message.answer(NO_SERVICES_TEXT, reply_markup=main_menu_keyboard())
+        await state.clear()
+        return
+
+    data = await state.get_data()
+    history_raw: list[dict[str, str]] = list(data.get(AI_PICK_HISTORY_KEY, []))
+    history = [ChatMessage(role=item["role"], content=item["content"]) for item in history_raw]
+
+    try:
+        recommendation = await with_typing(
+            message.bot,
+            message.chat.id,
+            llm.recommend_service(message.text, services, history),
+        )
+    except Exception:
+        logger.exception("Failed to get AI service recommendation")
+        await message.answer(AI_ERROR_TEXT, reply_markup=ai_pick_service_keyboard())
+        return
+
+    history_raw.append({"role": "user", "content": message.text})
+    history_raw.append({"role": "assistant", "content": recommendation.reply})
+    await state.update_data(**{AI_PICK_HISTORY_KEY: history_raw})
+
+    if recommendation.service_id and not recommendation.needs_clarification:
+        service = next(item for item in services if item.id == recommendation.service_id)
+        await message.answer(
+            format_ai_service_recommendation(service.name, recommendation.reply),
+            reply_markup=ai_service_confirm_keyboard(service.id, service.name),
+        )
+        return
+
+    await message.answer(recommendation.reply, reply_markup=ai_pick_service_keyboard())
 
 
 @router.callback_query(F.data.startswith("doc:"), BookingStates.select_doctor)
@@ -296,15 +406,15 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(F.data == "back:service", BookingStates.select_doctor)
+@router.callback_query(F.data == "back:service", BookingStates.ai_pick_service)
 async def back_to_service(callback: CallbackQuery, state: FSMContext) -> None:
-    clinic_data = get_clinic_data_service()
-    services = await run_sync(clinic_data.get_services)
     await state.set_state(BookingStates.select_service)
     await callback.answer()
+    _, keyboard = await _get_services_keyboard()
     await _edit_or_answer(
         callback,
         SELECT_SERVICE_TEXT,
-        services_keyboard(services),
+        keyboard,
     )
 
 
