@@ -53,6 +53,11 @@ async def main() -> None:
     )
     dp = create_dispatcher()
 
+    if settings.groq_api_key:
+        logger.info("AI assistant enabled (Groq, model=%s)", settings.groq_model)
+    else:
+        logger.warning("AI assistant disabled: GROQ_API_KEY is not set")
+
     logger.info("Bot started (polling)")
     await dp.start_polling(bot)
 

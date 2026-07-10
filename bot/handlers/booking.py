@@ -65,8 +65,7 @@ AI_PICK_HISTORY_KEY = "ai_pick_history"
 async def _get_services_keyboard():
     clinic_data = get_clinic_data_service()
     services = await run_sync(clinic_data.get_services)
-    ai_available = get_llm_service().is_configured
-    return services, services_keyboard(services, ai_pick_available=ai_available)
+    return services, services_keyboard(services)
 
 
 async def _go_to_doctor_selection(

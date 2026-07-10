@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +26,14 @@ class Settings(BaseSettings):
     groq_temperature: float = 0.3
     groq_max_tokens: int = 300
     groq_base_url: str = "https://api.groq.com/openai/v1"
+
+    @field_validator("groq_api_key", mode="before")
+    @classmethod
+    def strip_groq_api_key(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = str(value).strip()
+        return stripped or None
 
 
 settings = Settings()
