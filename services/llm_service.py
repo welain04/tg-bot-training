@@ -8,6 +8,7 @@ from config.settings import settings
 from domain.models.service import Service
 from services.ai_prompt_service import AiPromptService
 from services.clinic_data_service import ClinicDataService
+from services.service_matcher import match_service_in_text
 
 logger = logging.getLogger(__name__)
 
@@ -136,18 +137,30 @@ class LlmService:
             valid_ids = {service.id for service in services}
             if service_id not in valid_ids:
                 logger.warning("LLM returned unknown service_id: %s", service_id)
-                return ServiceRecommendation(
-                    reply=reply,
-                    service_id=None,
-                    needs_clarification=True,
-                )
-            needs_clarification = False
+                service_id = None
+            else:
+                needs_clarification = False
+
+        if not service_id and not needs_clarification:
+            matched = match_service_in_text(reply, services)
+            if matched is not None:
+                service_id = matched.id
+                needs_clarification = False
 
         return ServiceRecommendation(
             reply=reply,
             service_id=service_id,
             needs_clarification=needs_clarification,
         )
+
+    @staticmethod
+    def resolve_service(
+        recommendation: ServiceRecommendation,
+        services: list[Service],
+    ) -> Service | None:
+        if recommendation.service_id:
+            return next((service for service in services if service.id == recommendation.service_id), None)
+        return match_service_in_text(recommendation.reply, services)
 
     def _get_client(self) -> AsyncOpenAI:
         if self._client is None:

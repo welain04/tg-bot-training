@@ -9,7 +9,6 @@ from aiogram.types import CallbackQuery, Message
 from bot.data.mock import ANY_DOCTOR_ID, ANY_DOCTOR_NAME
 from bot.keyboards.booking import (
     ai_pick_service_keyboard,
-    ai_service_confirm_keyboard,
     confirm_keyboard,
     dates_keyboard,
     doctors_keyboard,
@@ -38,7 +37,6 @@ from bot.messages.templates import (
     SELECT_DOCTOR_TEXT,
     SELECT_SERVICE_TEXT,
     SELECT_TIME_TEXT,
-    format_ai_service_recommendation,
     format_confirm_text,
     format_success_text,
 )
@@ -68,15 +66,18 @@ async def _get_services_keyboard():
     return services, services_keyboard(services)
 
 
-async def _go_to_doctor_selection(
-    callback: CallbackQuery,
+async def _start_doctor_selection(
+    event: CallbackQuery | Message,
     state: FSMContext,
     service: Service,
 ) -> None:
     clinic_data = get_clinic_data_service()
     doctors = await run_sync(clinic_data.get_doctors_for_service, service.id)
     if not doctors:
-        await callback.answer("Нет доступных врачей для этой услуги", show_alert=True)
+        if isinstance(event, CallbackQuery):
+            await event.answer("Нет доступных врачей для этой услуги", show_alert=True)
+        else:
+            await event.answer("Нет доступных врачей для этой услуги.")
         return
 
     await state.update_data(
@@ -85,12 +86,21 @@ async def _go_to_doctor_selection(
         service_duration_min=service.duration_min,
     )
     await state.set_state(BookingStates.select_doctor)
-    await callback.answer()
-    await _edit_or_answer(
-        callback,
-        SELECT_DOCTOR_TEXT,
-        doctors_keyboard(doctors),
-    )
+
+    if isinstance(event, CallbackQuery):
+        await event.answer()
+        await _edit_or_answer(event, SELECT_DOCTOR_TEXT, doctors_keyboard(doctors))
+        return
+
+    await event.answer(SELECT_DOCTOR_TEXT, reply_markup=doctors_keyboard(doctors))
+
+
+async def _go_to_doctor_selection(
+    callback: CallbackQuery,
+    state: FSMContext,
+    service: Service,
+) -> None:
+    await _start_doctor_selection(callback, state, service)
 
 
 async def _edit_or_answer(callback: CallbackQuery, text: str, reply_markup) -> None:
@@ -202,6 +212,18 @@ async def start_ai_service_pick(callback: CallbackQuery, state: FSMContext) -> N
     await _edit_or_answer(callback, AI_PICK_SERVICE_TEXT, ai_pick_service_keyboard())
 
 
+@router.callback_query(F.data.startswith("continue_booking:"))
+async def continue_booking_from_ai(callback: CallbackQuery, state: FSMContext) -> None:
+    service_id = callback.data.split(":", maxsplit=1)[1]
+    clinic_data = get_clinic_data_service()
+    service = await run_sync(clinic_data.get_service_by_id, service_id)
+    if service is None:
+        await callback.answer("Услуга не найдена", show_alert=True)
+        return
+
+    await _start_doctor_selection(callback, state, service)
+
+
 @router.callback_query(F.data.startswith("confirm_ai_svc:"), BookingStates.ai_pick_service)
 async def confirm_ai_service(callback: CallbackQuery, state: FSMContext) -> None:
     service_id = callback.data.split(":", maxsplit=1)[1]
@@ -255,12 +277,9 @@ async def handle_ai_service_pick(message: Message, state: FSMContext) -> None:
     history_raw.append({"role": "assistant", "content": recommendation.reply})
     await state.update_data(**{AI_PICK_HISTORY_KEY: history_raw})
 
-    if recommendation.service_id and not recommendation.needs_clarification:
-        service = next(item for item in services if item.id == recommendation.service_id)
-        await message.answer(
-            format_ai_service_recommendation(service.name, recommendation.reply),
-            reply_markup=ai_service_confirm_keyboard(service.id, service.name),
-        )
+    service = llm.resolve_service(recommendation, services)
+    if service is not None:
+        await _start_doctor_selection(message, state, service)
         return
 
     await message.answer(recommendation.reply, reply_markup=ai_pick_service_keyboard())
