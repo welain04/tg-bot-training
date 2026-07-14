@@ -1,10 +1,11 @@
 # Telegram-бот для записи в стоматологическую клинику
 
-Бот для записи на приём через Inline-кнопки. Данные хранятся в Google Sheets, расписание считается из таблицы.
+Бот для записи на приём через Inline-кнопки. Данные хранятся в Google Sheets, расписание считается из таблицы. Встроен AI-помощник на Groq для ответов об услугах и подбора услуги при записи.
 
 ## Возможности
 
 - Запись на приём за 7 шагов (услуга → врач → дата → время → ФИО → телефон → подтверждение)
+- AI-помощник: ответы об услугах и подбор услуги по описанию симптомов (Groq)
 - Справочники услуг и врачей из Google Sheets
 - Расписание из листов: Расписание, Перерывы, Исключения, Занятые слоты
 - Сохранение заявок в лист «Заявки»
@@ -17,6 +18,7 @@
 - Telegram Bot Token ([@BotFather](https://t.me/BotFather))
 - Google Sheets с листами: **Услуги**, **Врачи**, **Расписание**, **Перерывы**, **Исключения**, **Занятые слоты**, **Заявки**
 - Google Service Account
+- API-ключ [Groq](https://console.groq.com/keys) — необязательно; без него бот работает, но AI-помощник отключён
 
 ---
 
@@ -32,11 +34,13 @@ pip install -r requirements.txt
 
 Положите JSON-ключ service account в `credentials/google_service_account.json`.
 
+Для AI-помощника добавьте `GROQ_API_KEY` в `.env` (ключ: [console.groq.com/keys](https://console.groq.com/keys), формат `gsk_...`).
+
 ```bash
 python -m bot.main
 ```
 
-В Telegram: `/start` → **Записаться**.
+В Telegram: `/start` → **Записаться** или **Спросить об услугах**.
 
 ---
 
@@ -49,7 +53,13 @@ python -m bot.main
 | `GOOGLE_SHEETS_ID` | да | ID Google-таблицы |
 | `GOOGLE_CREDENTIALS_PATH` | локально | Путь к JSON-ключу |
 | `GOOGLE_CREDENTIALS_JSON` | на сервере | JSON-ключ одной строкой (альтернатива файлу) |
+| `TIMEZONE` | нет | Часовой пояс (по умолчанию `Europe/Moscow`) |
+| `GROQ_API_KEY` | нет | API-ключ Groq для AI-помощника |
+| `GROQ_MODEL` | нет | Модель Groq (по умолчанию `llama-3.3-70b-versatile`) |
+| `GROQ_TEMPERATURE` | нет | Температура ответов (по умолчанию `0.3`) |
+| `GROQ_MAX_TOKENS` | нет | Лимит токенов ответа (по умолчанию `300`) |
 | `FSM_TIMEOUT_MINUTES` | нет | Таймаут сессии записи (по умолчанию 30) |
+| `CALLBACK_THROTTLE_SECONDS` | нет | Задержка между нажатиями кнопок (по умолчанию `0.4`) |
 | `REDIS_URL` | нет | Redis для FSM в production |
 | `LOG_LEVEL` | нет | INFO, DEBUG, WARNING |
 
@@ -58,6 +68,16 @@ python -m bot.main
 ## Тексты клиники
 
 Редактируйте `config/clinic.toml` (UTF-8): название, «О клинике», контакты. После изменений — `git push` в `main`, GitHub Actions задеплоит обновление.
+
+## AI-помощник
+
+Промпты и правила ответов — в `config/ai_prompt.toml` (UTF-8). Помощник отвечает только по услугам из Google Sheets и не выдумывает цены или процедуры.
+
+Два сценария:
+- **Спросить об услугах** — свободный диалог из главного меню
+- **Подобрать услугу** — на шаге выбора услуги при записи
+
+Без `GROQ_API_KEY` оба сценария недоступны; запись через кнопки работает как обычно.
 
 ---
 
@@ -173,10 +193,10 @@ sudo systemctl status dental-bot
 
 ```
 bot/           — handlers, keyboards, FSM, middlewares
-config/        — настройки из .env
+config/        — настройки из .env, тексты клиники, AI-промпты
 domain/        — модели данных
 integrations/  — Google Sheets
-services/      — бизнес-логика
+services/      — бизнес-логика, LLM, подбор услуг
 utils/         — утилиты
 ```
 
